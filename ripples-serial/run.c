@@ -159,7 +159,7 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, float T, stru
     conn.ItoE = GIE;
 
     clock_t toc = clock();
-    printf("elapsed time is %lf seconds.\n", (double)(toc - tic) / CLOCKS_PER_SEC);
+    printf("elapsed time is %.2lf seconds.\n", (double)(toc - tic) / CLOCKS_PER_SEC);
 
 
     /* initialize sim */
@@ -257,19 +257,40 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, float T, stru
     int seqN = 1;
     struct matrix Enoise;
     Enoise.size[0] = NE;
-    Enoise.size[1] = ceil(1000 / dt);
+    //Enoise.size[1] = ceil(1000 / dt);
+    Enoise.size[1] = 3;
     Enoise.val = (double*)malloc(Enoise.size[0] * Enoise.size[1] * sizeof(double));
-    double* noise;
-    noise = malloc(Enoise.size[1] * sizeof(double));
     while (seqN <= T) {
         tic = clock();
         printf("[noise generation] second %d\n", seqN);
         //the noise is generated row by row
         for (int i = 0; i < Enoise.size[0]; i++) {
-            noiseGen(noise, Enoise.size[1], 1, dt);
-            for (int j = 0; j < Enoise.size[1]; j++) {
-                Enoise.val[i * Enoise.size[1] + j] = noise[j];
-            }
+            noiseGen(&Enoise.val[i* Enoise.size[1]], Enoise.size[1], 1, dt);
+
+
+
+
+
+
+            toc = clock();
+            printf("elapsed time is %.2lf seconds.\n", (double)(toc - tic) / CLOCKS_PER_SEC);
+            free(NEseq);
+            free(Edc_dist);
+            free(Idc_dist);
+            free(w);
+            free(MX.val);
+            free(GEE.val);
+            free(GII.val);
+            // free(vbar.E);
+            // free(vbar.I);
+            // free(veg.E);
+            // free(veg.I);
+            // free(lfp);
+            free(Enoise.val);
+
+            exit(0);
+
+
         }
         seqN++;
     }
