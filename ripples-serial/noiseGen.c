@@ -10,36 +10,37 @@ void idft(double *t, _Dcomplex *f, int size) {
 	for (int n = 0; n < size; n++) {
 		t[n] = 0;
 		for (int k = 0; k < size; k++) {
-			t[n] += cabs(_Cmulcc(f[k], cexp(_Cbuild(0, (2*PI*n*k)/size)) )); //abs????????????????
+			t[n] += creal(_Cmulcc(f[k], cexp(_Cbuild(0, (2*PI*n*k)/size)) )); //throwing away half of the info?
 		}
 		t[n] /= size;
 	}
 }
 
-double calculateStandardDeviation(int N, double *data)
+double calculateMean(int N, double *data)
 {
-	// variable to store sum of the given data
+	double sum = 0;
+	for (int i = 0; i < N; i++) {    
+		sum += data[i];
+	}
+
+	return sum / N;
+}
+
+double calculateStandardDeviation(int N, double* data)
+{
 	double sum = 0;
 	for (int i = 0; i < N; i++) {
 		sum += data[i];
 	}
 
-	// calculating mean
 	double mean = sum / N;
-
-	// temporary variable to store the summation of square
-	// of difference between individual data items and mean
 	double values = 0;
 
 	for (int i = 0; i < N; i++) {
 		values += pow(data[i] - mean, 2);
 	}
-
-	// variance is the square of standard deviation
 	double variance = values / N;
 
-	// calculating standard deviation by finding square root
-	// of variance
 	return sqrt(variance);
 }
 
@@ -71,26 +72,25 @@ void noiseGen(double* noise, int size, double T, double dt) { //size must be odd
 		faxis[i] = (fidx[i] - 1) * df;
 
 		Rr[i] = RandNormal();
-		phase_dist = cexp(_Cbuild(0, PI * Rr[i]));
+		phase_dist = cexp(_Cbuild(0, PI * Rr[i]));   
 		filterf[i] = sqrt(1 / ( pow(2 * PI * ff,2) + pow(2 * PI * faxis[i],2) ));
 
 		tmp = _Cmulcc(phase_dist, _Cbuild(filterf[i], 0));
 
-		//fourier[s1 + 1 + i] = tmp;
 		fourier[1 + i] = tmp;
 		fourier[s1 + 1 + i] = conj(tmp);
-		//fourier[s1 - 1 - i] = conj(tmp);
-		
 	}
 
 	idft(noise, fourier, size);
+	double mean = calculateMean(size, noise);
 	double std_dev = calculateStandardDeviation(size,noise);
+	//printf("[");
 	for (int i = 0; i < size; i++) {
-		noise[i] /= std_dev;
+		noise[i] = noise[i] - mean;
+		noise[i] = noise[i] / (std_dev);      
+		//printf("%lf, ", noise[i]);
 	}
-
-	//print a random value to check
-	printf("%lf ", noise[1]);
+	//printf("]\n");
 
 	free(fidx);
 	free(faxis);
