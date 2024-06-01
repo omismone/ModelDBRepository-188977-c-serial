@@ -260,18 +260,68 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, float T, stru
     int seqN = 1;
     struct matrix Enoise;
     Enoise.size[0] = NE;
-    //Enoise.size[1] = ceil(1000 / dt);
-    Enoise.size[1] = 301;
+    Enoise.size[1] = ceil(1000 / dt);
+    //Enoise.size[1] = 301;
+    struct matrix Inoise;
+    Inoise.size[0] = NI;
+    Inoise.size[1] = ceil(1000 / dt);
+    //Inoise.size[1] = 301;
     Enoise.val = (double*)malloc(Enoise.size[0] * Enoise.size[1] * sizeof(double));
+    Inoise.val = (double*)malloc(Inoise.size[0] * Inoise.size[1] * sizeof(double));
     while (seqN <= T) {
         tic = clock();
         printf("[noise generation] second %d\n", seqN);
-        //the noise is generated row by row
-        for (int i = 0; i < Enoise.size[0]; i++) {
+
+        /*
+        // [CHOISE 1] generating the noise 
+        for (int i = 0; i < Enoise.size[0]; i++) { //the noise is generated row by row
             noiseGen(&Enoise.val[i* Enoise.size[1]], Enoise.size[1], 1, dt);
         }
+        for (int i = 0; i < Inoise.size[0]; i++) {
+            noiseGen(&Inoise.val[i* Inoise.size[1]], Inoise.size[1], 1, dt);
+        }
+        */
+
+        // [CHOISE 2 - recommended] reading the noise, to have it in a binary file @see scripts/SaveNoise.m 
+        FILE *fp;
+        fp = fopen("bin/Enoise.bin", "rb");
+        if (fp == NULL) {
+            perror("error while opening noises files");
+            exit(1);
+        }
+        int numElements = fread(Enoise.val, sizeof(double), Enoise.size[0] * Enoise.size[1], fp);
+        if (numElements < Enoise.size[0] * Enoise.size[1]) {
+            if (ferror(fp)) {
+                perror("error while reading noises files");
+            } else {
+                printf("[[warning: EOF before reading all the noises]]\n");
+            }
+            fclose(fp);
+            exit(1);
+        }
+        fclose(fp);
+
+        fp = fopen("bin/Inoise.bin", "rb");
+        if (fp == NULL) {
+            perror("error while opening noises files");
+            exit(1);
+        }
+        numElements = fread(Inoise.val, sizeof(double), Inoise.size[0] * Inoise.size[1], fp);
+        if (numElements < Inoise.size[0] * Inoise.size[1]) {
+            if (ferror(fp)) {
+                perror("error while reading noises files");
+            } else {
+                printf("[[warning: EOF before reading all the noises]]\n");
+            }
+            fclose(fp);
+            exit(1);
+        }
+        fclose(fp);
+
+        //to do: write the real noises with lab pc and save them in bin file
+
         seqN++;
-    }
+        }
 
 
 
