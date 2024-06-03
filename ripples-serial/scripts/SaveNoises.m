@@ -2,11 +2,11 @@
 % to have them run the simulation at https://github.com/ModelDBRepository/188977
 
 % save Enoise
-fileID = fopen('bin/Enoise.bin','wb');
+fileID = fopen('C:\Users\mclab\Desktop\simone\paral\ripples-serial\ripples-serial\bin\Enoise.bin','wb');
 fwrite(fileID,Enoise','double');
 fclose(fileID);
 
 %save Inoise
-fileID = fopen('bin/Inoise.bin','wb');
+fileID = fopen('C:\Users\mclab\Desktop\simone\paral\ripples-serial\ripples-serial\bin\Inoise.bin','wb');
 fwrite(fileID,Inoise','double');
 fclose(fileID);

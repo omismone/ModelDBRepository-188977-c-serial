@@ -1,5 +1,9 @@
 #include "omislib.h"
 
+#define ENOISE_BIN_PATH "C:\\Users\\mclab\\Desktop\\simone\\paral\\ripples-serial\\ripples-serial\\bin\\Enoise.bin"
+#define INOISE_BIN_PATH "C:\\Users\\mclab\\Desktop\\simone\\paral\\ripples-serial\\ripples-serial\\bin\\Inoise.bin"
+
+
 /*
 *   @see https://en.wikipedia.org/wiki/Normal_distribution#Generating_values_from_normal_distribution
 */
@@ -260,20 +264,83 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, float T, stru
     int seqN = 1;
     struct matrix Enoise;
     Enoise.size[0] = NE;
-    Enoise.size[1] = ceil(1000 / dt);
+    Enoise.size[1] = (int)ceil(1000 / 0.001) + 1;
     //Enoise.size[1] = 301;
     struct matrix Inoise;
     Inoise.size[0] = NI;
-    Inoise.size[1] = ceil(1000 / dt);
+    Inoise.size[1] = (int)ceil(1000 / 0.001) + 1;
     //Inoise.size[1] = 301;
     Enoise.val = (double*)malloc(Enoise.size[0] * Enoise.size[1] * sizeof(double));
     Inoise.val = (double*)malloc(Inoise.size[0] * Inoise.size[1] * sizeof(double));
+
+    // [CHOISE 1 - recommended] reading the noise, to have it in a binary file @see scripts/SaveNoise.m 
+    printf("[reading noise]\n");
+
+    FILE* fp = NULL;
+    fp = fopen(ENOISE_BIN_PATH, "rb");
+    if (fp == NULL) {
+        perror("error while opening noises files");
+        exit(1);
+    }
+    int numElements = fread(Enoise.val, sizeof(double), Enoise.size[0] * Enoise.size[1], fp);
+    if (numElements < Enoise.size[0] * Enoise.size[1]) {
+        if (ferror(fp)) {
+            perror("error while reading noises files");
+        }
+        else {
+            printf("[[warning: EOF before reading all the noises]]\n");
+        }
+        fclose(fp);
+        exit(1);
+    }
+    fclose(fp);
+
+    fp = fopen(INOISE_BIN_PATH, "rb");
+    if (fp == NULL) {
+        perror("error while opening noises files");
+        exit(1);
+    }
+    numElements = fread(Inoise.val, sizeof(double), Inoise.size[0] * Inoise.size[1], fp);
+    if (numElements < Inoise.size[0] * Inoise.size[1]) {
+        if (ferror(fp)) {
+            perror("error while reading noises files");
+        }
+        else {
+            printf("[[warning: EOF before reading all the noises]]\n");
+        }
+        fclose(fp);
+        exit(1);
+    }
+    fclose(fp);
+
+
+    // for the initialization of the first instant of simulation
+    double* vE, * wE, * sE, * sEI, * erE, * edE, * erEI, * edEI;
+    vE = malloc(NE * sizeof(double));
+    wE = malloc(NE * sizeof(double));
+    sE = malloc(NE * sizeof(double));
+    sEI = malloc(NE * sizeof(double));
+    erE = malloc(NE * sizeof(double));
+    edE = malloc(NE * sizeof(double));
+    erEI = malloc(NE * sizeof(double));
+    edEI = malloc(NE * sizeof(double));
+
+    double* vI, * wI, * sI, * sII, * erI, * edI, * erIE, * edIE;
+    vI = malloc(NI * sizeof(double));
+    wI = malloc(NI * sizeof(double));
+    sI = malloc(NI * sizeof(double));
+    sII = malloc(NI * sizeof(double));
+    erI = malloc(NE * sizeof(double));
+    edI = malloc(NE * sizeof(double));
+    erIE = malloc(NE * sizeof(double));
+    edIE = malloc(NE * sizeof(double));
+
     while (seqN <= T) {
+        /*
+        // [CHOISE 2] generating the noise 
+
         tic = clock();
         printf("[noise generation] second %d\n", seqN);
-
-        /*
-        // [CHOISE 1] generating the noise 
         for (int i = 0; i < Enoise.size[0]; i++) { //the noise is generated row by row
             noiseGen(&Enoise.val[i* Enoise.size[1]], Enoise.size[1], 1, dt);
         }
@@ -282,46 +349,46 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, float T, stru
         }
         */
 
-        // [CHOISE 2 - recommended] reading the noise, to have it in a binary file @see scripts/SaveNoise.m 
-        FILE *fp;
-        fp = fopen("bin/Enoise.bin", "rb");
-        if (fp == NULL) {
-            perror("error while opening noises files");
-            exit(1);
-        }
-        int numElements = fread(Enoise.val, sizeof(double), Enoise.size[0] * Enoise.size[1], fp);
-        if (numElements < Enoise.size[0] * Enoise.size[1]) {
-            if (ferror(fp)) {
-                perror("error while reading noises files");
-            } else {
-                printf("[[warning: EOF before reading all the noises]]\n");
-            }
-            fclose(fp);
-            exit(1);
-        }
-        fclose(fp);
+        printf("integrating ODE\n");
 
-        fp = fopen("bin/Inoise.bin", "rb");
-        if (fp == NULL) {
-            perror("error while opening noises files");
-            exit(1);
-        }
-        numElements = fread(Inoise.val, sizeof(double), Inoise.size[0] * Inoise.size[1], fp);
-        if (numElements < Inoise.size[0] * Inoise.size[1]) {
-            if (ferror(fp)) {
-                perror("error while reading noises files");
-            } else {
-                printf("[[warning: EOF before reading all the noises]]\n");
-            }
-            fclose(fp);
-            exit(1);
-        }
-        fclose(fp);
 
-        //to do: write the real noises with lab pc and save them in bin file
+        for (int i = 0; i < NE; i++) {
+            vE[i] = ((double)rand() / (double)RAND_MAX) * (70+p.VrE) - 70;
+            wE[i] = p.aE * (vE[i] - p.ElE);
+            sE[i] = 0;
+            sEI[i] = 0;
+            if (seqN == 1) {
+                erE[i] = 0;
+                edE[i] = 0;
+                erEI[i] = 0;
+                edEI[i] = 0;
+            }
+        }
+
+        for (int i = 0; i < NI; i++) {
+            vI[i] = ((double)rand() / (double)RAND_MAX) * (70 + p.VrI) - 70;
+            wI[i] = p.aI * (vI[i] - p.ElI);
+            sI[i] = 0;
+            sII[i] = 0;
+            if (seqN == 1) {
+                erI[i] = 0;
+                edI[i] = 0;
+                erIE[i] = 0;
+                edIE[i] = 0;
+            }
+        }
+        int tmin, tmax;
+        if (seqN != 1) {
+            tmin = (seqN - 1) * 1000 - 100;
+            tmax = seqN * 1000 + 20;
+
+            // to do: comnporre il vettore stsec
+        }
+        
+
 
         seqN++;
-        }
+    }
 
 
 
