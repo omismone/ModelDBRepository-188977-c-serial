@@ -98,7 +98,7 @@ struct pm {
 */
 struct inpseq {
     float slp;
-    float* on;
+    struct vec on;
     float length;
 };
 

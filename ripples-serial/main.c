@@ -75,10 +75,10 @@ void main() {
     in.slp = 3; //[=]ms slope of current activation (bell shaped)
     //inpseq_on = 1100:220:T*1000;
     int s = ceil(((1000 * T) - 1100) / 220);
-    in.on = (float*)malloc(s * sizeof(float));
-    in.on[0] = 1100;
-    for (int i = 1; 1100 + 220 * i <= T * 1000; i++) {
-        in.on[i] = (1100 + 220 * i);
+    in.on.size = s;
+    in.on.val = (double*)malloc(in.on.size * sizeof(double));
+    for (int i = 0; i < s; i++) {
+        in.on.val[i] = (double)(1100 + 220 * i);
     }
     in.length = 50; // [=] ms sequence of input ends
 
@@ -97,5 +97,5 @@ void main() {
     NetworkRunSeqt(p, in, NE, NI, T, opt);
 
     /* free */
-    free(in.on);
+    free(in.on.val);
 }

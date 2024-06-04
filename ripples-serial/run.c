@@ -19,7 +19,7 @@ double RandNormal()
 /*
 *   compare function (descending order) for quick sort
 */
-int DescendCmp(const void* a, const void* b) {
+static int DescendCmp(const void* a, const void* b) {
     double c = (*(double*)b - *(double*)a);
     if (c > 0)
         return -1;
@@ -29,6 +29,39 @@ int DescendCmp(const void* a, const void* b) {
         return 0;
 }
 
+
+/*
+* Calculate the matrix multiplication so that res = m1 * m2.
+*/
+void mulMatr(struct matrix* m1, struct matrix* m2, struct matrix *res) {
+    double sum;
+    for (int i = 0; i < m1->size[0]; i++) {
+        for (int j = 0; j < m2->size[1]; j++) {
+            sum = 0;
+            for (int k = 0; k < m1->size[1]; k++) {
+                sum += m1->val[i * m1->size[1] + k] * m2->val[k * m2->size[1] + j];
+            }
+            res->val[i * res->size[1] + j] = sum;
+        }
+    }
+}
+
+/*
+*   Calculate the transposed of a matrix.
+*
+*   @param mat The matrix.
+*   @param res The place to save the result.
+*/
+void transpose(struct matrix* mat, struct matrix* res) {
+    double tmp;
+    for (int i = 0; i < ceil(((float)mat->size[0])/2); i++) {
+        for (int j = 0; j < mat->size[1]; j++) {
+            tmp = mat->val[i * res->size[1] + j];
+            res->val[i * res->size[1] + j] = mat->val[j * res->size[1] + i];
+            res->val[j * res->size[1] + i] = tmp;
+        }
+    }
+}
 
 void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, float T, struct options opt) {
 
@@ -186,11 +219,12 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, float T, stru
     // time
     double dt = 0.001; // [=]ms integration step
     // t = 0:dt:1000
-    double* t; // one sec time axis 
+    struct vec t; // one sec time axis 
     s = ceil(1000 / dt);
-    t = (double*)malloc(s * sizeof(double));
+    t.size = s;
+    t.val = (double*)malloc(s * sizeof(double));
     for (int i = 0; dt * i <= 1000; i++) {
-        t[i] = dt * i;
+        t.val[i] = dt * i;
     }
 
     // peak values of biexps signals
@@ -335,6 +369,12 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, float T, stru
     erIE = malloc(NE * sizeof(double));
     edIE = malloc(NE * sizeof(double));
 
+
+    double tmin, tmax;
+    struct vec stsec;
+    stsec.size = in.on.size; //max size, then realloc
+    stsec.val = (double *)malloc(stsec.size * sizeof(double));
+
     while (seqN <= T) {
         /*
         // [CHOISE 2] generating the noise 
@@ -350,7 +390,6 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, float T, stru
         */
 
         printf("integrating ODE\n");
-
 
         for (int i = 0; i < NE; i++) {
             vE[i] = ((double)rand() / (double)RAND_MAX) * (70+p.VrE) - 70;
@@ -377,14 +416,121 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, float T, stru
                 edIE[i] = 0;
             }
         }
-        int tmin, tmax;
         if (seqN != 1) {
             tmin = (seqN - 1) * 1000 - 100;
             tmax = seqN * 1000 + 20;
+            stsec.size = 0;
+            for (int i = 0; i < in.on.size; i++) {
+                if (in.on.val[i] >= tmin && in.on.val[i] < tmax) {
+                    stsec.val[stsec.size] = in.on.val[i]; // note that in the matlab version this part is wrong
+                    stsec.size++;
+                }
+            }
+            stsec.val = realloc(stsec.val, stsec.size * sizeof(double));
 
-            // to do: comnporre il vettore stsec
+            struct matrix bmps;
+            double *bt, *ebt;
+            double ebt_max = 0;
+            double bt_max = 0;
+            bmps.size[0] = 100;
+            bmps.size[1] = t.size;
+            bmps.val = (double *)malloc(bmps.size[0] * bmps.size[1] * sizeof(double));
+            bt = (double*)malloc(t.size * sizeof(double));
+            ebt = (double*)malloc(t.size * sizeof(double));
+
+            for (int j = 0; j < t.size; j++) {
+                for (int i = 0; i < 100; i++) {
+                    bmps.val[i * bmps.size[1] + j] = 0;
+                }
+                bt[j] = 0;
+                ebt[j] = 0;
+            }
+
+            for (int i = 0; i < stsec.size; i++) {
+                // inside each ripple event
+                stsec.val[i] = stsec.val[i] - ((seqN - 1) * 1000);
+                double rplton = stsec.val[i];
+                double rpltoff = rplton + in.length;
+                int L = in.length - in.slp - 2;
+                int L0 = 0; // in.slp/in.length
+                int L1 = 1; // - L0
+
+                double step = (double)1 / 99;
+                int size = ceil((L1 - L0) / step) + 1;
+                double* tbins, *tons, *toffs;
+                tbins = malloc(size * sizeof(double));
+                tons = malloc(size * sizeof(double));
+                toffs = malloc(size * sizeof(double));
+                for (int k = 0; k < size; k++) {
+                    tbins[k] = (L0 + (k * step)) * L;
+                    tons[k] = rplton + in.slp + 2 + tbins[k]; // start the Ecells bumps after the I cells are inhibiting already
+                    toffs[k] = tons[k] + (in.length / 99);
+                }
+                for (int j = 0; j < bmps.size[1]; j++) {
+                    for (int k = 0; k < bmps.size[0]; k++) {
+                        bmps.val[k * bmps.size[1] + j] = bmps.val[k * bmps.size[1] + j] + ( 1 / (1 + exp(( tons[k] - t.val[j]) / 1.5)) * 1 / (1 + exp((t.val[j] - toffs[k]) / 1.5)));
+                    }
+                    bt[j] = bt[j] + ( (1 / (1 + exp((rplton - t.val[j]) / in.slp))) * (1 / (1 + exp((t.val[j] - rpltoff) / in.slp))));
+                    ebt[j] = ebt[j] + ( (1 / (1 + exp((rplton - t.val[j]) / (in.slp/2)))) * (1 / (1 + exp((t.val[j] - rpltoff) / (in.slp/2)))));
+                    ebt_max = ebt_max > ebt[j] ? ebt_max : ebt[j];
+                    bt_max = bt_max > bt[j] ? bt_max : bt[j];
+                }
+
+                free(tbins);
+                free(tons);
+                free(toffs);
+            }
+            struct matrix AEX, AIX;
+            AEX.size[0] = NE;
+            AEX.size[1] = bmps.size[1];
+            AIX.size[0] = NI;
+            AIX.size[1] = bmps.size[1];
+            AEX.val = malloc(AEX.size[0] * AEX.size[1] * sizeof(double));
+            AIX.val = malloc(AIX.size[0] * AIX.size[1] * sizeof(double));
+
+            transpose(&MX, &MX);
+            struct matrix tmp;
+            tmp.size[0] = MX.size[1];
+            tmp.size[1] = bmps.size[0];
+            tmp.val = malloc(tmp.size[0] * tmp.size[1] * sizeof(double));
+            mulMatr(&MX, &bmps, &tmp);
+
+            
+            for (int k = 0; k < AEX.size[0]; k++) {
+                for (int j = 0; j < AEX.size[1]; j++) {
+                    AEX.val[k * AEX.size[1] + j] = 5 * tmp.val[k * AEX.size[1] + j] + ebt[j];
+                    AIX.val[k * AIX.size[1] + j] = bt[j];
+                }
+            }
+            free(tmp.val);
+
+            double Escale = ebt_max;
+            double ff;
+            ff = Escale > 0 ? p.jmpE / Escale : 0;
+            for (int k = 0; k < Enoise.size[0]; k++) {
+                for (int j = 0; j < Enoise.size[1]; j++) {
+                    Enoise.val[k * Enoise.size[1] + j] = Enoise.val[k * Enoise.size[1] + j] + (ff * AEX.val[k * Enoise.size[1] + j]);
+                }
+            }            
+            double Iscale = bt_max;
+            double gg;
+            gg = Iscale > 0 ? p.jmpI / Iscale : 0;
+            for (int k = 0; k < Inoise.size[0]; k++) {
+                for (int j = 0; j < Inoise.size[1]; j++) {
+                    Inoise.val[k * Inoise.size[1] + j] = Inoise.val[k * Inoise.size[1] + j] + (gg * AIX.val[k * Inoise.size[1] + j]);
+                }
+            }
+
+
+            //to do: Einptrace e Iinptrace e risolvi bug per cui esci != 0
+
+            free(bmps.val);
+            free(bt);
+            free(ebt);
+            free(AEX.val);
         }
-        
+           
+        //for tosto
 
 
         seqN++;
@@ -407,4 +553,23 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, float T, stru
     // free(veg.I);
     // free(lfp);
     free(Enoise.val);
+    free(Inoise.val);
+
+    free(vE); 
+    free(wE); 
+    free(sE); 
+    free(sEI); 
+    free(erE); 
+    free(edE); 
+    free(erEI); 
+    free(edEI);
+    free(vI);
+    free(wI);
+    free(sI);
+    free(sII);
+    free(erI);
+    free(edI);
+    free(erIE);
+    free(edIE);
+    free(stsec.val);
 }
