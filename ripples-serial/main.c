@@ -1,6 +1,6 @@
 #include "omislib.h"
 
-void main() {
+int main() {
 
     /* Randomize*/
     srand(time(NULL));
@@ -67,7 +67,7 @@ void main() {
     p.dcbias = 2;
 
     /* Continuing initialization */
-    float T = 2;    // simulation duration [s]
+    double T = (double)2;    // simulation duration [s]
     int NE = 800;   // number of excitatory neurons
     int NI = 160;   // number of inhibitory neurons
 
@@ -98,4 +98,6 @@ void main() {
 
     /* free */
     free(in.on.val);
+
+    return 0;
 }

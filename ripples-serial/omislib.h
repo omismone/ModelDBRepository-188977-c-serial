@@ -31,66 +31,66 @@ struct matrix {
 struct pm {
     /* E = excitatory ; I = inhibitory */
 
-    float CE;   // capacity [F]
-    float glE;  // leakage conductance [S]
-    float ElE;  // leakage reversal potential [V]
-    float aE;   // constant [ ]
-    float bE;   // constant [ ]
-    float slpE; // 
-    float twE;  // [s]
-    float VtE;  // threshold
-    float VrE;  // resting voltage
+    double CE;   // capacity [F]
+    double glE;  // leakage conductance [S]
+    double ElE;  // leakage reversal potential [V]
+    double aE;   // constant [ ]
+    double bE;   // constant [ ]
+    double slpE; // 
+    double twE;  // [s]
+    double VtE;  // threshold
+    double VrE;  // resting voltage
 
-    float CI;
-    float glI;
-    float ElI;
-    float aI;
-    float bI;
-    float slpI;
-    float twI;
-    float VtI;
-    float VrI;
+    double CI;
+    double glI;
+    double ElI;
+    double aI;
+    double bI;
+    double slpI;
+    double twI;
+    double VtI;
+    double VrI;
 
-    float gnoiseE;
-    float gnoiseI;
+    double gnoiseE;
+    double gnoiseI;
 
     //EtoE
-    float tauEr;
-    float tauEd;
+    double tauEr;
+    double tauEd;
     //EtoB
-    float tauEIr;
-    float tauEId;
+    double tauEIr;
+    double tauEId;
     //BtoB
-    float tauIr;
-    float tauId;
+    double tauIr;
+    double tauId;
     //BtoP 
-    float tauIEr;
-    float tauIEd;
+    double tauIEr;
+    double tauIEd;
 
-    float gmaxII;
-    float gmaxEI;
-    float gmaxIE;
-    float gmaxEE;
+    double gmaxII;
+    double gmaxEI;
+    double gmaxIE;
+    double gmaxEE;
 
-    float VrevE;
-    float VrevI;
+    double VrevE;
+    double VrevI;
 
-    float gvarEE;
-    float gvarII;
+    double gvarEE;
+    double gvarII;
 
-    float gvarEI;
-    float gvarIE;
+    double gvarEI;
+    double gvarIE;
 
-    float DCstdI;
-    float DCstdE;
+    double DCstdI;
+    double DCstdE;
 
-    float Edc;
-    float jmpE;
-    float Idc;
-    float jmpI;
+    double Edc;
+    double jmpE;
+    double Idc;
+    double jmpI;
 
-    float seqsize;
-    float dcbias;
+    double seqsize;
+    double dcbias;
 };
 
 /*
@@ -168,14 +168,14 @@ struct Inp {
 /*
 *   run the simulation.
 */
-void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, float T, struct options opt);
+void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, double T, struct options opt);
 
 /*
 *  generate the UO noise.
 * 
 * @param noise: where to save the generated noise vector.
 * @param size: the size of the noise vector.
-* @param T: the duration ??????????????????????????????????????????????????????????????????????????
+* @param T: the duration (?)
 */
 void noiseGen(double* noise, int size, double T, double dt);
 
