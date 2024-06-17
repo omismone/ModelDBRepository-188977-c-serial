@@ -51,11 +51,11 @@ void mulMatr(struct matrix* m1, struct matrix* m2, struct matrix *res) {
 * 
 * @note: the number of rows of m must be equal to the size of a.
 */
-void mulMatrVec(struct matrix* m, struct vec* a, struct vec* res) {
-    for (int i = 0; i < res->size; i++) {
-        res->val[i] = 0;
+void mulMatrVec(struct matrix* m, struct vec* a, double* res) {
+    for (int i = 0; i < a->size; i++) {
+        res[i] = 0;
         for (int j = 0; j < m->size[1]; j++) {
-            res->val[i] += m->val[i * m->size[1] + j] * a->val[j];
+            res[i] += m->val[i * m->size[1] + j] * a->val[j];
         }
     }
 }
@@ -104,6 +104,19 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, double T, str
     struct Isynbar isynbar;
     struct Inp inp;
     double* seqs;
+    
+    int max_size_tsp = 8000;
+    tspE.times.size = max_size_tsp; // max size
+    tspE.times.val = malloc(tspE.times.size * sizeof(double));
+    tspE.celln.size = max_size_tsp; // max size
+    tspE.celln.val = malloc(tspE.celln.size * sizeof(double));
+    int tspE_count = 0;
+
+    tspI.times.size = max_size_tsp; // max size
+    tspI.times.val = malloc(tspI.times.size * sizeof(double));
+    tspI.celln.size = max_size_tsp; // max size
+    tspI.celln.val = malloc(tspI.celln.size * sizeof(double));
+    int tspI_count = 0;
 
     /* pre select the sequence */
     int* NEseq;
@@ -144,6 +157,7 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, double T, str
     inp.Edc = Edc_dist; //on matlab is transposed
     inp.Idc = Idc_dist;
 
+    free(w);
 
 
     /* inputs */
@@ -158,9 +172,11 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, double T, str
     }
     int kkS;
     for (int i = 0; i < nL; i++) {
-        kkS = ceil(((float)NEseq[i] / NE) * 100);
+        kkS = floor(((float)NEseq[i] / NE) * 100) - 1;
         MX.val[kkS * MX.size[1] + NEseq[i]] = 1;
     }
+    transpose(&MX);  // after it will be used transposed
+    free(NEseq);
 
     /* synapses */
     printf("wire ntwk - ");
@@ -186,6 +202,7 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, double T, str
         }
     }
     conn.EtoE = GEE;
+    transpose(&GEE); // after is used only transposed
 
     mn = p.gmaxII / NI;
     vr = p.gvarII * mn;
@@ -200,6 +217,7 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, double T, str
         }
     }
     conn.ItoI = GII;
+
 
     mn = p.gmaxEI / NE;
     vr = p.gvarEI * mn;
@@ -228,6 +246,7 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, double T, str
         }
     }
     conn.ItoE = GIE;
+    transpose(&GIE); // after is used only transposed
 
     clock_t toc = clock();
     printf("elapsed time is %.2lf seconds.\n", (double)(toc - tic) / CLOCKS_PER_SEC);
@@ -252,7 +271,7 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, double T, str
     double dt = 0.1; // [=]ms integration step
 
     // allocate simulation ouput(GIE' * sIE)' * (vE - VrevI)
-    int s = ceil(T / dt);
+    int s = (ceil(1000 / dt) - 1) / 1000 + 1 + 1000 * (T - 1) + 1;
     vbar.E = (double*)malloc(s * sizeof(double));
     vbar.I = (double*)malloc(s * sizeof(double));
     veg.E = (double*)malloc(s * sizeof(double));
@@ -298,7 +317,7 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, double T, str
     int Ieg = (rand() % NI) + 1;
     veg.ni = Ieg;
 
-    s = ceil(T / dt) + 1;
+    s = (ceil(1000 / dt) - 1) / 1000 + 1 + 1000 * (T - 1) + 1;
     isynbar.ItoE.size[0] = NE;
     isynbar.ItoE.size[1] = s;
     isynbar.ItoE.val = (double*)malloc(isynbar.ItoE.size[0] * isynbar.ItoE.size[1] * sizeof(double));
@@ -556,14 +575,11 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, double T, str
             AEX.val = (double*)malloc(AEX.size[0] * AEX.size[1] * sizeof(double));
             AIX.val = (double*)malloc(AIX.size[0] * AIX.size[1] * sizeof(double));
 
-            transpose(&MX);
             struct matrix tmp;
             tmp.size[0] = MX.size[0];
             tmp.size[1] = bmps.size[1];
             tmp.val = (double*)malloc(tmp.size[0] * tmp.size[1] * sizeof(double));
             mulMatr(&MX, &bmps, &tmp);
-
-            transpose(&MX); // after the use it can be re-transposed
             
             for (int k = 0; k < AEX.size[0]; k++) {
                 for (int j = 0; j < AEX.size[1]; j++) {
@@ -620,10 +636,24 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, double T, str
         }
         
         int ids;
+
+        double* tmp1, *tmp2, * tmp3, * tmp4;
+        tmp1 = (double*)malloc(NE * sizeof(double));
+        tmp2 = (double*)malloc(NE * sizeof(double));
+        tmp3 = (double*)malloc(NI * sizeof(double));
+        tmp4 = (double*)malloc(NE * sizeof(double));
+
+        mulMatrVec(&GEE, &sE, tmp1); 
+        mulMatrVec(&GIE, &sIE, tmp2); 
+        mulMatrVec(&GII, &sI, tmp3); 
+        mulMatrVec(&GEI, &sEI, tmp4); 
+
+
+        double Isyn, Iapp, Iion, dvdt, dwdt;
+
         for (int idt = 1; idt < t.size; idt++) {
-            if (idt % 1000 == 1 && idt > 1) {
+            if (idt % 1000 == 1 && idt > 1) { //if the next part is commented no problem for vs, can the problem be a memory overflow?
                 ids = (idt - 1) / 1000 + 1 + 1000 * (seqN - 1);
-                
                 double vE_sum = 0, vI_sum = 0;
                 for (int i = 0; i < NE; i++) {
                     if (vE.val[i] > 0)
@@ -637,84 +667,126 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, double T, str
                 }
                 vbar.E[ids] = vE_sum / NE;
                 vbar.I[ids] = vI_sum / NI;
-
                 veg.E[ids] = vE.val[Eeg];
                 veg.I[ids] = vI.val[Ieg];
+                lfp.val[ids] = 0;
+                for (int i = 0; i < NE; i++) {
+                    lfp.val[ids] += ( tmp1[i] * (vE.val[i] - p.VrevE) ) + (tmp2[i] * (vE.val[i] - p.VrevI)); 
+                }
 
-                transpose(&GEE);
-                double* tmp1;
-                tmp1 = (double*)malloc(NE * sizeof(double));
-                mulMatrVec(&GEE, &sE, tmp1); //tmp is to consider col vec (in matlab is then transposed)
-                for (int i = 0; i < lfp.size; i++) {
-                    lfp.val[i] = tmp1[i] * (vE.val[i] - p.VrevE);
+                lfp.val[ids] /= NE;
+
+                if (opt.storecurrs) {
+                    for (int i = 0; i < NE; i++) {
+                        isynbar.EtoE.val[i * isynbar.EtoE.size[1] + ids] = tmp1[i] * (vE.val[i] - p.VrevE);
+                        isynbar.ItoE.val[i * isynbar.ItoE.size[1] + ids] = tmp2[i] * (vE.val[i] - p.VrevI);
+                    }
                 }
                 
+            }
 
-
-                transpose(&GEE); // re-adjust
-                free(tmp1);
+            /* E cells */
+            for (int idx = 0; idx < NE; idx++) {
+                Isyn = (tmp1[idx] * (vE.val[idx] - p.VrevE)) + (tmp2[idx] * (vE.val[idx] - p.VrevI) );
+                Iapp = Enoise.val[idx * Enoise.size[1] + idt];
+                Iion = ((-1) * p.glE * (vE.val[idx] - p.ElE)) + (p.glE * p.slpE * exp((vE.val[idx] - p.VtE) / p.slpE)) - (wE.val[idx]);
                 
+                dvdt = ((Iapp + Iion - Isyn) / p.CE);
+                dwdt = ((p.aE * (vE.val[idx] - p.ElE) - wE.val[idx]) / p.twE);
+                vE.val[idx] += dt * dvdt;
+                wE.val[idx] += dt * dwdt;
+
+                // syn gates evolution
+                edE.val[idx] *= fdE;
+                erE.val[idx] *= frE;
+                sE.val[idx] = erE.val[idx] - edE.val[idx];
+                edEI.val[idx] *= fdEI;
+                erEI.val[idx] *= frEI;
+                sEI.val[idx] = erEI.val[idx] - edEI.val[idx]; 
+                
+                
+                if (vE.val[idx] >= 0) {
+                    // update dynamic vars
+                    vE.val[idx] = p.VrE;
+                    wE.val[idx] += p.bE;
+                    // update syn gates
+                    edE.val[idx] += 1 / pvsE;
+                    erE.val[idx] += 1 / pvsE;
+                    edEI.val[idx] += 1 / pvsEI;
+                    erEI.val[idx] += 1 / pvsEI;
+
+                    tspE.times.val[tspE_count] = (t.val[idt] / 1000) + seqN - 1;
+                    tspE.celln.val[tspE_count] = idx;
+                    tspE_count++;
+                }
+            }
+
+            /* I cells */
+            for (int idx = 0; idx < NI; idx++) {
+                Isyn = (tmp3[idx] * (vI.val[idx] - p.VrevI)) + (tmp4[idx] * (vI.val[idx] - p.VrevE));
+                Iapp = Inoise.val[idx * Enoise.size[1] + idt];
+                Iion = ((-1) * p.glI * (vI.val[idx] - p.ElI)) + (p.glI * p.slpI * exp((vI.val[idx] - p.VtI) / p.slpI)) - (wI.val[idx]);
+
+                dvdt = ((Iapp + Iion - Isyn) / p.CI);
+                dwdt = ((p.aI * (vI.val[idx] - p.ElI) - wI.val[idx]) / p.twI);
+                vI.val[idx] += dt * dvdt;
+                wI.val[idx] += dt * dwdt;
+
+                // syn gates evolution
+                edI.val[idx] *= fdI;
+                erI.val[idx] *= frI;
+                sI.val[idx] = erI.val[idx] - edI.val[idx];
+                edIE.val[idx] *= fdIE;
+                erIE.val[idx] *= frIE;
+                sIE.val[idx] = erIE.val[idx] - edIE.val[idx];
+
+
+                if (vI.val[idx] >= 0) { // entro un sacco di volte, su matlab pochissime, risolvere
+                    // update dynamic vars
+                    vI.val[idx] = p.VrI;
+                    wI.val[idx] += p.bI;
+                    // update syn gates
+                    edI.val[idx] += 1 / pvsI;
+                    erI.val[idx] += 1 / pvsI;
+                    edIE.val[idx] += 1 / pvsIE;
+                    erIE.val[idx] += 1 / pvsIE;
+
+                    tspI.times.val[tspI_count] = (t.val[idt] / 1000) + seqN - 1;
+                    tspI.celln.val[tspI_count] = idx;
+                    tspI_count++;
+                }
             }
 
         }
 
+        free(tmp1);
+        free(tmp2);
 
         seqN++;
+        clock_t toc = clock();
+        printf("elapsed time is %.2lf seconds.\n", (double)(toc - tic) / CLOCKS_PER_SEC);
     }
-
-    /*
-    // test 
-    struct matrix a, b, c;
-    struct vec d, e;
-
-    a.size[0] = 2;
-    a.size[1] = 2;
-    b.size[0] = 2;
-    b.size[1] = 1;
-    c.size[0] = a.size[0];
-    c.size[1] = b.size[1];
-    d.size = 2;
-    e.size = 2;
-
-    a.val = (double *)malloc(sizeof(double) * a.size[0] * a.size[1]);
-    b.val = (double *)malloc(sizeof(double) * b.size[0] * b.size[1]);
-    c.val = (double *)malloc(sizeof(double) * c.size[0] * c.size[1]);
-    d.val = (double *)malloc(sizeof(double) * d.size);
-    e.val = (double *)malloc(sizeof(double) * e.size);
-
-    a.val[0] = 1;
-    a.val[1] = 2;
-    a.val[2] = 3;
-    a.val[3] = 4;
-    b.val[0] = 1;
-    b.val[1] = 2;
-
-    d.val[0] = 1;
-    d.val[1] = 2;
-
-
-    //mulMatr(&a, &b, &c);
-    mulMatrVec(&a, &d, &e);
-
-    for (int i = 0; i < e.size; i++) {
-        printf("%lf\n", e.val[i]);
-    }
-    */
     
+    tspE.times.size = tspE_count;
+    tspE.celln.size = tspE_count;
+    tspE.times.val = realloc(tspE.times.val, tspE.times.size * sizeof(double));
+    tspE.celln.val = realloc(tspE.celln.val, tspE.celln.size * sizeof(double));   
+    
+    tspI.times.size = tspI_count;
+    tspI.celln.size = tspI_count;
+    tspI.times.val = realloc(tspI.times.val, tspI.times.size * sizeof(double));
+    tspI.celln.val = realloc(tspI.celln.val, tspI.celln.size * sizeof(double));
+
+    inp.Etrace = Einptrace;
+    inp.Itrace = Iinptrace;
+
+
     
     /* free */
-    free(NEseq);
-    free(Edc_dist);
-    free(Idc_dist);
-    free(w);
     free(MX.val);
     free(GEE.val);
     free(GII.val);
-    // free(vbar.E); 
-    // free(vbar.I);
-    // free(veg.E);
-    // free(veg.I);
-    // free(lfp);
+    
     free(Enoise.val);
     free(Inoise.val);
 
@@ -735,5 +807,6 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, double T, str
     free(erIE.val);
     free(edIE.val);
     free(stsec.val);
+    
     return;
 }

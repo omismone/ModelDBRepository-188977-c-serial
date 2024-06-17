@@ -18,6 +18,14 @@ struct vec {
 };
 
 /*
+*   Array structure that contains the array and its size.
+*/
+struct long_vec {
+    double* val;   // The array.
+    int size;    // Number of its elements.
+};
+
+/*
 *   Matrix structure that contains the matrix and its size. //optimizing memory access.
 */
 struct matrix {
@@ -142,8 +150,8 @@ struct Veg {
 *  spikes times
 */
 struct Tsp {
-    double* times;
-    double* celln;
+    struct vec times;
+    struct vec celln;
 };
 
 /*
