@@ -9,8 +9,11 @@
 */
 double RandNormal()
 {
-    double x = (double)rand() / (double)RAND_MAX;
-    double y = (double)rand() / (double)RAND_MAX;
+    double x = 0, y = 0;
+    while (x == 0 || y == 0) {
+    x = (double)rand() / (double)RAND_MAX;
+    y = (double)rand() / (double)RAND_MAX;
+    }
     double z = sqrt(-2 * log(x)) * cos(2 * PI * y);
 
     return z;
@@ -34,14 +37,14 @@ static int DescendCmp(const void* a, const void* b) {
 * Calculate the matrix multiplication so that res = m1 * m2.
 */
 void mulMatr(struct matrix* m1, struct matrix* m2, struct matrix *res) {
-    double sum;
+    long double sum;
     for (int i = 0; i < m1->size[0]; i++) {
         for (int j = 0; j < m2->size[1]; j++) {
             sum = 0;
             for (int k = 0; k < m1->size[1]; k++) {
                 sum += m1->val[i * m1->size[1] + k] * m2->val[k * m2->size[1] + j];
             }
-            res->val[i * res->size[1] + j] = sum;
+            res->val[i * res->size[1] + j] = (double)sum;
         }
     }
 }
@@ -52,7 +55,7 @@ void mulMatr(struct matrix* m1, struct matrix* m2, struct matrix *res) {
 * @note: the number of rows of m must be equal to the size of a.
 */
 void mulMatrVec(struct matrix* m, struct vec* a, double* res) {
-    for (int i = 0; i < a->size; i++) {
+    for (int i = 0; i < m->size[0]; i++) {
         res[i] = 0;
         for (int j = 0; j < m->size[1]; j++) {
             res[i] += m->val[i * m->size[1] + j] * a->val[j];
@@ -105,7 +108,7 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, double T, str
     struct Inp inp;
     double* seqs;
     
-    int max_size_tsp = 8000;
+    int max_size_tsp = 20000;
     tspE.times.size = max_size_tsp; // max size
     tspE.times.val = malloc(tspE.times.size * sizeof(double));
     tspE.celln.size = max_size_tsp; // max size
@@ -268,7 +271,7 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, double T, str
 
 
     // time
-    double dt = 0.1; // [=]ms integration step
+    double dt = 0.001; // [=]ms integration step
 
     // allocate simulation ouput(GIE' * sIE)' * (vE - VrevI)
     int s = (ceil(1000 / dt) - 1) / 1000 + 1 + 1000 * (T - 1) + 1;
@@ -476,33 +479,30 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, double T, str
         */
 
         printf("integrating ODE\n");
-
-        for (int i = 0; i < NE; i++) {
-            vE.val[i] = ((double)rand() / (double)RAND_MAX) * (70+p.VrE) - 70;
-            wE.val[i] = p.aE * (vE.val[i] - p.ElE);
-            sE.val[i] = 0;
-            sEI.val[i] = 0;
-            if (seqN == 1) {
+        if (seqN == 1) {
+            for (int i = 0; i < NE; i++) {
+                vE.val[i] = ((double)rand() / (double)RAND_MAX) * (70 + p.VrE) - 70;
+                wE.val[i] = p.aE * (vE.val[i] - p.ElE);
+                sE.val[i] = 0;
+                sEI.val[i] = 0;
                 erE.val[i] = 0;
                 edE.val[i] = 0;
                 erEI.val[i] = 0;
                 edEI.val[i] = 0;
             }
-        }
 
-        for (int i = 0; i < NI; i++) {
-            vI.val[i] = ((double)rand() / (double)RAND_MAX) * (70 + p.VrI) - 70;
-            wI.val[i] = p.aI * (vI.val[i] - p.ElI);
-            sI.val[i] = 0;
-            sIE.val[i] = 0;
-            if (seqN == 1) {
+            for (int i = 0; i < NI; i++) {
+                vI.val[i] = ((double)rand() / (double)RAND_MAX) * (70 + p.VrI) - 70;
+                wI.val[i] = p.aI * (vI.val[i] - p.ElI);
+                sI.val[i] = 0;
+                sIE.val[i] = 0;
                 erI.val[i] = 0;
                 edI.val[i] = 0;
                 erIE.val[i] = 0;
                 edIE.val[i] = 0;
             }
         }
-        if (seqN != 1) {
+        else {
             tmin = (seqN - 1) * 1000 - 100;
             tmax = seqN * 1000 + 20;
             stsec.size = 0;
@@ -649,10 +649,10 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, double T, str
         mulMatrVec(&GEI, &sEI, tmp4); 
 
 
-        double Isyn, Iapp, Iion, dvdt, dwdt;
+        double Isyn, Iapp, Iion, dvdt, dwdt, wEst, wIst, vEst, vIst;
 
         for (int idt = 1; idt < t.size; idt++) {
-            if (idt % 1000 == 1 && idt > 1) { //if the next part is commented no problem for vs, can the problem be a memory overflow?
+            if (idt % 1000 == 1 && idt > 1) { 
                 ids = (idt - 1) / 1000 + 1 + 1000 * (seqN - 1);
                 double vE_sum = 0, vI_sum = 0;
                 for (int i = 0; i < NE; i++) {
@@ -687,28 +687,30 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, double T, str
 
             /* E cells */
             for (int idx = 0; idx < NE; idx++) {
+                vEst = vE.val[idx];
+                wEst = wE.val[idx];
                 Isyn = (tmp1[idx] * (vE.val[idx] - p.VrevE)) + (tmp2[idx] * (vE.val[idx] - p.VrevI) );
                 Iapp = Enoise.val[idx * Enoise.size[1] + idt];
                 Iion = ((-1) * p.glE * (vE.val[idx] - p.ElE)) + (p.glE * p.slpE * exp((vE.val[idx] - p.VtE) / p.slpE)) - (wE.val[idx]);
                 
                 dvdt = ((Iapp + Iion - Isyn) / p.CE);
                 dwdt = ((p.aE * (vE.val[idx] - p.ElE) - wE.val[idx]) / p.twE);
-                vE.val[idx] += dt * dvdt;
-                wE.val[idx] += dt * dwdt;
+                vE.val[idx] = vE.val[idx] + (dt * dvdt);
+                wE.val[idx] = wE.val[idx] + (dt * dwdt);
 
                 // syn gates evolution
-                edE.val[idx] *= fdE;
+                edE.val[idx] *= fdE;  
                 erE.val[idx] *= frE;
                 sE.val[idx] = erE.val[idx] - edE.val[idx];
                 edEI.val[idx] *= fdEI;
                 erEI.val[idx] *= frEI;
-                sEI.val[idx] = erEI.val[idx] - edEI.val[idx]; 
+                sEI.val[idx] = erEI.val[idx] - edEI.val[idx];
                 
                 
-                if (vE.val[idx] >= 0) {
+                if (vEst >= 0) {
                     // update dynamic vars
                     vE.val[idx] = p.VrE;
-                    wE.val[idx] += p.bE;
+                    wE.val[idx] = wEst + p.bE;
                     // update syn gates
                     edE.val[idx] += 1 / pvsE;
                     erE.val[idx] += 1 / pvsE;
@@ -723,6 +725,8 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, double T, str
 
             /* I cells */
             for (int idx = 0; idx < NI; idx++) {
+                vIst = vI.val[idx];
+                wIst = wI.val[idx];
                 Isyn = (tmp3[idx] * (vI.val[idx] - p.VrevI)) + (tmp4[idx] * (vI.val[idx] - p.VrevE));
                 Iapp = Inoise.val[idx * Enoise.size[1] + idt];
                 Iion = ((-1) * p.glI * (vI.val[idx] - p.ElI)) + (p.glI * p.slpI * exp((vI.val[idx] - p.VtI) / p.slpI)) - (wI.val[idx]);
@@ -741,10 +745,10 @@ void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, double T, str
                 sIE.val[idx] = erIE.val[idx] - edIE.val[idx];
 
 
-                if (vI.val[idx] >= 0) { // entro un sacco di volte, su matlab pochissime, risolvere
+                if (vIst >= 0) { 
                     // update dynamic vars
                     vI.val[idx] = p.VrI;
-                    wI.val[idx] += p.bI;
+                    wI.val[idx] = wIst + p.bI;
                     // update syn gates
                     edI.val[idx] += 1 / pvsI;
                     erI.val[idx] += 1 / pvsI;
