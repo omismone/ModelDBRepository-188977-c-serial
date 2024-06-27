@@ -176,7 +176,12 @@ struct Inp {
 /*
 *   run the simulation.
 */
-void NetworkRunSeqt(struct pm p, struct inpseq in, int NE, int NI, double T, struct options opt);
+void NetworkRunSeqt(struct pm p, struct inpseq inps, int NE, int NI, double T, struct options opt);
+
+/*
+*   save the results in .txt files
+*/
+void save(struct Veg* veg, struct vec* lfp, struct Tsp* tspE, struct Tsp* tspI, struct Inp* inp, struct inpseq *inps, int T, int NE, int NI);
 
 /*
 *  generate the UO noise.
