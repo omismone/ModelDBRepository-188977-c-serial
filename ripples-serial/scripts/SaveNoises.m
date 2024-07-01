@@ -2,14 +2,14 @@
 % to have them run the simulation at https://github.com/ModelDBRepository/188977
 
 % save Enoise
-fileID = fopen('C:\Users\mclab\Desktop\simone\thesis\ripples-serial\ripples-serial\bin\Enoise.bin','wb');
-fwrite(fileID,Enoise','double');
-fclose(fileID);
-
-%save Inoise
-fileID = fopen('C:\Users\mclab\Desktop\simone\thesis\ripples-serial\ripples-serial\bin\Inoise.bin','wb');
-fwrite(fileID,Inoise','double');
-fclose(fileID);
+% fileID = fopen('C:\Users\mclab\Desktop\simone\thesis\ripples-serial\ripples-serial\bin\Enoise2.bin','wb');
+% fwrite(fileID,Enoise','double');
+% fclose(fileID);
+% 
+% %save Inoise
+% fileID = fopen('C:\Users\mclab\Desktop\simone\thesis\ripples-serial\ripples-serial\bin\Inoise2.bin','wb');
+% fwrite(fileID,Inoise','double');
+% fclose(fileID);
 
 
 %% used to check correctness of c program
@@ -28,7 +28,4 @@ fclose(fileID);
 % fileID = fopen('C:\Users\mclab\Desktop\simone\thesis\ripples-serial\ripples-serial\bin\GII.bin','wb');
 % fwrite(fileID,GII','double');
 % fclose(fileID);
-
-
-
 

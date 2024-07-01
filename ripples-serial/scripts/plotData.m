@@ -47,7 +47,7 @@ rpt = ripples.time(rpick); %[=]s
 %disp(rpt)
 rpl = ripples.length(rpick)/1000; %[=]s
 
-figure(11)
+figure(1)
 plot(tout,veg.E,'-k',tout,veg.I,'-r')
 title('Example voltage')
 ylabel('mV')
@@ -59,7 +59,7 @@ xr = rpt+rpl+0.02;
 k1 = find(tout>=xl,1);
 k2 = find(tout>=xr,1);
 X = k1:k2;
-figure(21)
+figure(2)
 subplot(311)
 plot(tout(X),inp.Itrace(1,X),'-r',tout(X),inp.Etrace(1,X),'-k');
 xlim([xl xr]);
@@ -79,7 +79,7 @@ title('LFP');
 xlabel('time [=] s');
 
 tx = 0:0.0005:T;
-figure(31)
+figure(3)
 subplot(311)
 hist(tsp_E.times,tx);
 %xlim([3.5 3.6]);

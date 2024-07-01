@@ -3,9 +3,7 @@
 int main() {
 
     /* Randomize*/
-    //srand(time(NULL));
-    //srand(14);
-    srand(2);
+    srand(time(NULL));
 
     struct pm p;
     p.CE = 200;     //pF

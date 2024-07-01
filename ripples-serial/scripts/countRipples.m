@@ -55,7 +55,7 @@ for idr = 1:L
         [pxx,fx] = pwelch(flfp(kon:kon+150),20,2,400,fs);
         lfpr = flfp(kon:kon+150);
     end
-    figure(98)
+    figure(4)
     plot(fx,pxx);
     hold on;
     
